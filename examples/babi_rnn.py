@@ -235,7 +235,7 @@ qrnn = Sequential()
 qrnn.add(Embedding(vocab_size, EMBED_HIDDEN_SIZE,
                    input_length=query_maxlen))
 qrnn.add(Dropout(0.3))
-qrnn.add(RNN(EMBED_HIDDEN_SIZE, return_sequences=False))
+qrnn.add(RNN(EMBED_HIDDEN_SIZE, input_shape = (BATCH_SIZE, query_maxlen)))
 qrnn.add(RepeatVector(story_maxlen))
 
 model = Sequential()
