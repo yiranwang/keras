@@ -25,7 +25,11 @@ import tarfile
 import numpy as np
 import re
 
-
+"""
+==================================================================
+Most of the methods here are annotated in babi_rnn.py.
+==================================================================
+"""
 def tokenize(sent):
     '''Return the tokens of a sentence including punctuation.
 
@@ -153,13 +157,21 @@ print('answers_test shape:', answers_test.shape)
 print('-')
 print('Compiling...')
 
-# embed the input sequence into a sequence of vectors
+
+"""
+=================================================================================================
+The following implements an End-To-End Memory Networks described in http://arxiv.org/abs/1503.08895
+=================================================================================================
+"""
+
+# embed the input sequence into memory vectors
 input_encoder_m = Sequential()
 input_encoder_m.add(Embedding(input_dim=vocab_size,
                               output_dim=64,
                               input_length=story_maxlen))
 input_encoder_m.add(Dropout(0.3))
 # output: (samples, story_maxlen, embedding_dim)
+
 # embed the question into a sequence of vectors
 question_encoder = Sequential()
 question_encoder.add(Embedding(input_dim=vocab_size,
@@ -167,6 +179,7 @@ question_encoder.add(Embedding(input_dim=vocab_size,
                                input_length=query_maxlen))
 question_encoder.add(Dropout(0.3))
 # output: (samples, query_maxlen, embedding_dim)
+
 # compute a 'match' between input sequence elements (which are vectors)
 # and the question vector sequence
 match = Sequential()
@@ -175,20 +188,32 @@ match.add(Merge([input_encoder_m, question_encoder],
                 dot_axes=[2, 2]))
 match.add(Activation('softmax'))
 # output: (samples, story_maxlen, query_maxlen)
-# embed the input into a single vector with size = story_maxlen:
+
+# ------------------------------------------
+# input_encoder_m + question_encoder -> match
+# the sfmx output of this match can be interpreted as probability p
+# ------------------------------------------
+
+# embed the input into a difference space with dimensions matched up with p
 input_encoder_c = Sequential()
 input_encoder_c.add(Embedding(input_dim=vocab_size,
                               output_dim=query_maxlen,
                               input_length=story_maxlen))
 input_encoder_c.add(Dropout(0.3))
 # output: (samples, story_maxlen, query_maxlen)
+
 # sum the match vector with the input vector:
 response = Sequential()
 response.add(Merge([match, input_encoder_c], mode='sum'))
 # output: (samples, story_maxlen, query_maxlen)
-response.add(Permute((2, 1)))  # output: (samples, query_maxlen, story_maxlen)
+response.add(Permute((2, 1)))
+# output: (samples, query_maxlen, story_maxlen)
 
-# concatenate the match vector with the question vector,
+# --------------------------------------
+# input_encoder_c + match -> response (output layer)
+# --------------------------------------
+
+# concatenate the match vector with the question vector, which directly contributes to the answer
 # and do logistic regression on top
 answer = Sequential()
 answer.add(Merge([response, question_encoder], mode='concat', concat_axis=-1))
@@ -197,6 +222,12 @@ answer.add(Merge([response, question_encoder], mode='concat', concat_axis=-1))
 answer.add(LSTM(32))
 # one regularization layer -- more would probably be needed.
 answer.add(Dropout(0.3))
+
+# --------------------------------------
+# response + question_encoder -> answer
+# --------------------------------------
+
+
 answer.add(Dense(vocab_size))
 # we output a probability distribution over the vocabulary
 answer.add(Activation('softmax'))
