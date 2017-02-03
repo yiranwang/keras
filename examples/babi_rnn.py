@@ -237,7 +237,7 @@ qrnn.add(Embedding(vocab_size, EMBED_HIDDEN_SIZE,
 
 qrnn.add(RNN(QUERY_HIDDEN_SIZE, return_sequences = False))
 qrnn.add(Dropout(0.3))
-# qrnn.add(RepeatVector(story_maxlen))
+qrnn.add(RepeatVector(story_maxlen))
 
 model = Sequential()
 model.add(Merge([sentrnn, qrnn], mode='concat'))
