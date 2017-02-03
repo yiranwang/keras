@@ -78,11 +78,20 @@ def tokenize(sent):
     >>> tokenize('Bob dropped the apple. Where is the apple?')
     ['Bob', 'dropped', 'the', 'apple', '.', 'Where', 'is', 'the', 'apple', '?']
     '''
-    return [x.strip() for x in re.split('(\W+)?', sent) if x.strip()]
+    return [x.strip() for x in re.split('(\W+)?', sent) if x.strip()] # regex of a word
+
 
 
 def parse_stories(lines, only_supporting=False):
     '''Parse stories provided in the bAbi tasks format
+
+    -------------------
+    Parsing format:
+    Each file contains a number of stories, which consists of a number of lines of content.
+    Indice 1 indicates the 1st line of a story.
+    Every two lines story telling are followed by a line of question + answer + indice of supporting line separated by '\t'.
+    So every story has one or multiple questions answered.
+    -------------------
 
     If only_supporting is true, only the sentences that support the answer are kept.
     '''
@@ -93,21 +102,21 @@ def parse_stories(lines, only_supporting=False):
         nid, line = line.split(' ', 1)
         nid = int(nid)
         if nid == 1:
-            story = []
+            story = [] # Beginning of a story, new a list.
         if '\t' in line:
-            q, a, supporting = line.split('\t')
+            q, a, supporting = line.split('\t') #
             q = tokenize(q)
             substory = None
             if only_supporting:
                 # Only select the related substory
-                supporting = map(int, supporting.split())
+                supporting = map(int, supporting.split()) # iterable = map(func. iterable), supporting could be more than one indice.
                 substory = [story[i - 1] for i in supporting]
             else:
-                # Provide all the substories
+                # As story unfolds question by question, the next question corresponds to the current and all previous story lines.
                 substory = [x for x in story if x]
             data.append((substory, q, a))
-            story.append('')
-        else:
+            story.append('') # To keep indices in story consistent, add an empty string instead when dealing with question line.
+        else: # Add story line when not dealing with question line.
             sent = tokenize(line)
             story.append(sent)
     return data
@@ -118,9 +127,15 @@ def get_stories(f, only_supporting=False, max_length=None):
 
     If max_length is supplied, any stories longer than max_length tokens will be discarded.
     '''
-    data = parse_stories(f.readlines(), only_supporting=only_supporting)
-    flatten = lambda data: reduce(lambda x, y: x + y, data)
+    data = parse_stories(f.readlines(), only_supporting=only_supporting) # f.readlines() is used as iterface.
+
+    # flatten() explained
+    # -------------------
+    # data above received as in [([[storyline1], [storyline2]], [question_line], answer), () ... ()] where story lines are grouped.
+    flatten = lambda story: reduce(lambda x, y: x + y, story)
+    # flatten() takes in story and returns reduced outcome. reduce() apply "+" operation on one element and the next in story, which equals to list1.extend(list2)
     data = [(flatten(story), q, answer) for story, q, answer in data if not max_length or len(flatten(story)) < max_length]
+    # data now received as in [([storyline1, storyline2], [question_line], answer), () ... ()] where story lines are flattened.
     return data
 
 
@@ -129,16 +144,19 @@ def vectorize_stories(data, word_idx, story_maxlen, query_maxlen):
     Xq = []
     Y = []
     for story, query, answer in data:
-        x = [word_idx[w] for w in story]
+        x = [word_idx[w] for w in story] # word_idx is the dictionary = {"word": indice}.
         xq = [word_idx[w] for w in query]
         y = np.zeros(len(word_idx) + 1)  # let's not forget that index 0 is reserved
-        y[word_idx[answer]] = 1
+        y[word_idx[answer]] = 1 # answer didn't go through tokenization, so it is a single word.
         X.append(x)
         Xq.append(xq)
         Y.append(y)
+    # Each x is a sequence of words, thus a 1D array.
+    # X is a series of stories, thus a 2D array.
+    # Pad each x, whose length is less than story_maxlen, with default value 0 of default type of int32, and return a numpy.array.
     return pad_sequences(X, maxlen=story_maxlen), pad_sequences(Xq, maxlen=query_maxlen), np.array(Y)
 
-RNN = recurrent.LSTM
+RNN = recurrent.GRU
 EMBED_HIDDEN_SIZE = 50
 SENT_HIDDEN_SIZE = 100
 QUERY_HIDDEN_SIZE = 100
@@ -154,21 +172,37 @@ except:
           '$ mv tasks_1-20_v1-2.tar.gz ~/.keras/datasets/babi-tasks-v1-2.tar.gz')
     raise
 tar = tarfile.open(path)
+
+
+# Choose your desired samples
+# ----------------------------
 # Default QA1 with 1000 samples
 # challenge = 'tasks_1-20_v1-2/en/qa1_single-supporting-fact_{}.txt'
 # QA1 with 10,000 samples
-# challenge = 'tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_{}.txt'
+challenge = 'tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_{}.txt'
 # QA2 with 1000 samples
-challenge = 'tasks_1-20_v1-2/en/qa2_two-supporting-facts_{}.txt'
+# challenge = 'tasks_1-20_v1-2/en/qa2_two-supporting-facts_{}.txt'
 # QA2 with 10,000 samples
 # challenge = 'tasks_1-20_v1-2/en-10k/qa2_two-supporting-facts_{}.txt'
+
+# Set training and testing sets
+# ------------------------------
 train = get_stories(tar.extractfile(challenge.format('train')))
 test = get_stories(tar.extractfile(challenge.format('test')))
 
+# lamda x, y: x | y, (set()) explained:
+# -------------------------------------
+# for story, q, answer in train + test:
+#   set(story + q + [answer]) -> a set of vocabulary appeared in this unit, train + test contains a number of such units
+# (set([s + q + a]) for s, q, a in iterator) -> compress all sets of vocabulary generated into a Generator as the third argument passed into reduce()
+# reduce() unions("|") one set and the next to form a set of total vocabulary.
 vocab = sorted(reduce(lambda x, y: x | y, (set(story + q + [answer]) for story, q, answer in train + test)))
+
 # Reserve 0 for masking via pad_sequences
 vocab_size = len(vocab) + 1
-word_idx = dict((c, i + 1) for i, c in enumerate(vocab))
+
+word_idx = dict((c, i + 1) for i, c in enumerate(vocab)) # Generator = ((c, i + 1) for i, c in enumerate(vocab)); Dictionary = dict(Generator)
+
 story_maxlen = max(map(len, (x for x, _, _ in train + test)))
 query_maxlen = max(map(len, (x for _, x, _ in train + test)))
 
@@ -183,21 +217,40 @@ print('story_maxlen, query_maxlen = {}, {}'.format(story_maxlen, query_maxlen))
 
 print('Build model...')
 
+
+"""
+recurrent.Recurrent() is the base class used in recurrent.LSTM/recurrent.GRU
+
+    @ input args: input_dims, output_dims
+"""
+
+MERGE_HIDDEN_SIZE = 100
+
 sentrnn = Sequential()
 sentrnn.add(Embedding(vocab_size, EMBED_HIDDEN_SIZE,
                       input_length=story_maxlen))
+sentrnn.add(RNN(EMBED_HIDDEN_SIZE, SENT_HIDDEN_SIZE,
+                      return_sequences = False))
 sentrnn.add(Dropout(0.3))
+sentrnn.add(RNN(SENT_HIDDEN_SIZE, MERGE_HIDDEN_SIZE,
+                      return_sequences = False))
+
+
 
 qrnn = Sequential()
 qrnn.add(Embedding(vocab_size, EMBED_HIDDEN_SIZE,
                    input_length=query_maxlen))
+qrnn.add(RNN(EMBED_HIDDEN_SIZE, QUERY_HIDDEN_SIZE,
+                   return_sequences=False))
 qrnn.add(Dropout(0.3))
-qrnn.add(RNN(EMBED_HIDDEN_SIZE, return_sequences=False))
+qrnn.add(RNN(SENT_HIDDEN_SIZE, MERGE_HIDDEN_SIZE,
+                      return_sequences = False))
 qrnn.add(RepeatVector(story_maxlen))
 
 model = Sequential()
 model.add(Merge([sentrnn, qrnn], mode='sum'))
-model.add(RNN(EMBED_HIDDEN_SIZE, return_sequences=False))
+
+model.add(RNN(MERGE_HIDDEN_SIZE, return_sequences=False))
 model.add(Dropout(0.3))
 model.add(Dense(vocab_size, activation='softmax'))
 
