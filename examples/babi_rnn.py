@@ -227,8 +227,7 @@ recurrent.Recurrent() is the base class used in recurrent.LSTM/recurrent.GRU
 sentrnn = Sequential()
 sentrnn.add(Embedding(vocab_size, EMBED_HIDDEN_SIZE,
                       input_length=story_maxlen))
-sentrnn.add(RNN(EMBED_HIDDEN_SIZE, SENT_HIDDEN_SIZE,
-                      return_sequences = False))
+sentrnn.add(RNN(EMBED_HIDDEN_SIZE, SENT_HIDDEN_SIZE))
 sentrnn.add(Dropout(0.3))
 
 
@@ -236,19 +235,14 @@ sentrnn.add(Dropout(0.3))
 qrnn = Sequential()
 qrnn.add(Embedding(vocab_size, EMBED_HIDDEN_SIZE,
                    input_length=query_maxlen))
-qrnn.add(RNN(EMBED_HIDDEN_SIZE, QUERY_HIDDEN_SIZE,
-                   return_sequences=False))
+qrnn.add(RNN(EMBED_HIDDEN_SIZE, QUERY_HIDDEN_SIZE))
 qrnn.add(Dropout(0.3))
 
 # qrnn.add(RepeatVector(story_maxlen))
 
 model = Sequential()
 model.add(Merge([sentrnn, qrnn], mode='concat'))
-
-model.add(RNN(SENT_HIDDEN_SIZE + QUERY_HIDDEN_SIZE, return_sequences=False))
-model.add(Dropout(0.3))
-
-model.add(Dense(vocab_size, activation='softmax'))
+model.add(Dense(SENT_HIDDEN_SIZE + QUERY_HIDDEN_SIZE, vocab_size, activation='softmax'))
 
 model.compile(optimizer='adam',
               loss='categorical_crossentropy',
