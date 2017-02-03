@@ -221,7 +221,8 @@ print('Build model...')
 """
 recurrent.Recurrent() is the base class used in recurrent.LSTM/recurrent.GRU
 
-    @ input args: input_dims, output_dims
+Only the 1st layer needs to specify input_dim and output_dim.
+All the following layers require output_dim.
 """
 
 sentrnn = Sequential()
@@ -229,7 +230,8 @@ sentrnn.add(Embedding(vocab_size, EMBED_HIDDEN_SIZE,
                       input_length=story_maxlen))
 sentrnn.add(RNN(SENT_HIDDEN_SIZE, return_sequences = True))
 sentrnn.add(Dropout(0.3))
-
+# return_sequences = True so that the output follows (sample_nb, story_maxlen, SENT_HIDDEN_SIZE)
+# else the output follows (sample_nb, SENT_HIDDEN_SIZE)
 
 qrnn = Sequential()
 qrnn.add(Embedding(vocab_size, EMBED_HIDDEN_SIZE,
@@ -238,6 +240,9 @@ qrnn.add(Embedding(vocab_size, EMBED_HIDDEN_SIZE,
 qrnn.add(RNN(QUERY_HIDDEN_SIZE, return_sequences = False))
 qrnn.add(Dropout(0.3))
 qrnn.add(RepeatVector(story_maxlen))
+# If set return_sequences = True, the output follows (sample_nb, query_maxlen, QUERY_HIDDEN_SIZE)
+# To match up with the output format of sentrnn, set return_sequences = False so that the output follows (sample_nb, QUERY_HIDDEN_SIZE)
+# qrnn.add(RepeatVector(story_maxlen)) layer makes it to (sample_nb, story_maxlen, QUERY_HIDDEN_SIZE)
 
 model = Sequential()
 model.add(Merge([sentrnn, qrnn], mode='concat'))
