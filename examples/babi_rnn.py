@@ -227,7 +227,7 @@ recurrent.Recurrent() is the base class used in recurrent.LSTM/recurrent.GRU
 sentrnn = Sequential()
 sentrnn.add(Embedding(vocab_size, EMBED_HIDDEN_SIZE,
                       input_length=story_maxlen))
-sentrnn.add(RNN(SENT_HIDDEN_SIZE, return_sequences = False))
+sentrnn.add(RNN(SENT_HIDDEN_SIZE, return_sequences = True))
 sentrnn.add(Dropout(0.3))
 
 
