@@ -156,7 +156,7 @@ def vectorize_stories(data, word_idx, story_maxlen, query_maxlen):
     # Pad each x, whose length is less than story_maxlen, with default value 0 of default type of int32, and return a numpy.array.
     return pad_sequences(X, maxlen=story_maxlen), pad_sequences(Xq, maxlen=query_maxlen), np.array(Y)
 
-RNN = recurrent.GRU
+RNN = recurrent.LSTM
 EMBED_HIDDEN_SIZE = 50
 SENT_HIDDEN_SIZE = 100
 QUERY_HIDDEN_SIZE = 100
@@ -225,16 +225,14 @@ recurrent.Recurrent() is the base class used in recurrent.LSTM/recurrent.GRU
 """
 
 sentrnn = Sequential()
-sentrnn.add(Embedding(vocab_size, EMBED_HIDDEN_SIZE,
-                      input_length=story_maxlen))
+sentrnn.add(Embedding(vocab_size, EMBED_HIDDEN_SIZE))
 sentrnn.add(RNN(EMBED_HIDDEN_SIZE, SENT_HIDDEN_SIZE))
 sentrnn.add(Dropout(0.3))
 
 
 
 qrnn = Sequential()
-qrnn.add(Embedding(vocab_size, EMBED_HIDDEN_SIZE,
-                   input_length=query_maxlen))
+qrnn.add(Embedding(vocab_size, EMBED_HIDDEN_SIZE))
 qrnn.add(RNN(EMBED_HIDDEN_SIZE, QUERY_HIDDEN_SIZE))
 qrnn.add(Dropout(0.3))
 
