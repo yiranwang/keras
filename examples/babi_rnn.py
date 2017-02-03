@@ -156,7 +156,7 @@ def vectorize_stories(data, word_idx, story_maxlen, query_maxlen):
     # Pad each x, whose length is less than story_maxlen, with default value 0 of default type of int32, and return a numpy.array.
     return pad_sequences(X, maxlen=story_maxlen), pad_sequences(Xq, maxlen=query_maxlen), np.array(Y)
 
-RNN = recurrent.LSTM
+RNN = recurrent.GRU
 EMBED_HIDDEN_SIZE = 50
 SENT_HIDDEN_SIZE = 100
 QUERY_HIDDEN_SIZE = 100
@@ -177,9 +177,9 @@ tar = tarfile.open(path)
 # Choose your desired samples
 # ----------------------------
 # Default QA1 with 1000 samples
-# challenge = 'tasks_1-20_v1-2/en/qa1_single-supporting-fact_{}.txt'
+challenge = 'tasks_1-20_v1-2/en/qa1_single-supporting-fact_{}.txt'
 # QA1 with 10,000 samples
-challenge = 'tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_{}.txt'
+# challenge = 'tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_{}.txt'
 # QA2 with 1000 samples
 # challenge = 'tasks_1-20_v1-2/en/qa2_two-supporting-facts_{}.txt'
 # QA2 with 10,000 samples
